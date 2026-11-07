@@ -111,19 +111,46 @@ public class MainActivity extends Activity {
     }
 
     private static final String UA = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36";
+    private static final String CRAWLER = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
 
-    // يتتبّع التحويلات حتى يصل إلى رابط الصفحة، ويحاول قراءة اسمها
+    private static boolean isGood(String u) {
+        if (u == null) return false;
+        Uri x = Uri.parse(u);
+        String h = x.getHost(), p = x.getPath();
+        if (h == null || !h.endsWith("facebook.com") || p == null || p.length() < 2) return false;
+        return !p.startsWith("/share") && !p.startsWith("/login") && !p.startsWith("/checkpoint")
+                && !p.startsWith("/l.php") && !p.startsWith("/sharer");
+    }
+
+    // يحاول عدة طرق لتحويل رابط المشاركة إلى رابط الصفحة، ويقرأ اسمها إن أمكن
     private String[] resolve(String start) {
+        String[] r = follow(start, UA, true);
+        if (isGood(r[0])) return r;
+        String[] c = follow(start, CRAWLER, false);
+        if (isGood(c[0])) return new String[]{c[0], c[1].isEmpty() ? r[1] : c[1]};
+        String alt = start.replace("://www.facebook.com", "://m.facebook.com");
+        if (!alt.equals(start)) {
+            String[] m = follow(alt, CRAWLER, false);
+            if (isGood(m[0])) return m;
+        }
+        return new String[]{start, c[1].isEmpty() ? r[1] : c[1]};
+    }
+
+    // يتتبع التحويلات ثم يقرأ الصفحة؛ يعيد [الرابط النهائي، الاسم]
+    private String[] follow(String start, String ua, boolean withCookies) {
         String url = start, name = "";
         String cookies = null;
-        try { cookies = CookieManager.getInstance().getCookie("https://www.facebook.com"); } catch (Exception ignored) {}
+        if (withCookies) {
+            try { cookies = CookieManager.getInstance().getCookie("https://www.facebook.com"); } catch (Exception ignored) {}
+        }
         try {
             for (int hop = 0; hop < 8; hop++) {
                 HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
                 c.setInstanceFollowRedirects(false);
                 c.setConnectTimeout(10000);
                 c.setReadTimeout(10000);
-                c.setRequestProperty("User-Agent", UA);
+                c.setRequestProperty("User-Agent", ua);
+                c.setRequestProperty("Accept", "text/html");
                 c.setRequestProperty("Accept-Language", "ar,en;q=0.8");
                 if (cookies != null && c.getURL().getHost().endsWith("facebook.com")) c.setRequestProperty("Cookie", cookies);
                 int code = c.getResponseCode();
@@ -134,13 +161,27 @@ public class MainActivity extends Activity {
                     String next = new URL(new URL(url), loc).toString();
                     if (next.contains("/login")) {
                         String n = Uri.parse(next).getQueryParameter("next");
-                        if (n != null && n.startsWith("http") && !n.contains("/share/")) url = n;
+                        if (isGood(n)) url = n;
                         break;
                     }
                     url = next;
                     continue;
                 }
-                if (code == 200) name = readTitle(c);
+                if (code == 200) {
+                    String html = readHtml(c);
+                    name = titleOf(html);
+                    if (!isGood(url)) {
+                        String canon = meta(html, "<meta[^>]+property=\"og:url\"[^>]+content=\"([^\"]+)\"");
+                        if (canon.isEmpty()) canon = meta(html, "<meta[^>]+content=\"([^\"]+)\"[^>]+property=\"og:url\"");
+                        if (canon.isEmpty()) canon = meta(html, "<link[^>]+rel=\"canonical\"[^>]+href=\"([^\"]+)\"");
+                        canon = unescape(canon);
+                        if (isGood(canon)) url = canon;
+                        else {
+                            String id = meta(html, "fb://(?:page|profile)/(?:\\?id=)?(\\d{5,})");
+                            if (!id.isEmpty()) url = "https://www.facebook.com/profile.php?id=" + id;
+                        }
+                    }
+                }
                 c.disconnect();
                 break;
             }
@@ -148,29 +189,33 @@ public class MainActivity extends Activity {
         return new String[]{url, name};
     }
 
-    private String readTitle(HttpURLConnection c) {
+    private static String meta(String html, String regex) {
+        Matcher m = Pattern.compile(regex).matcher(html);
+        return m.find() ? m.group(1) : "";
+    }
+
+    private String readHtml(HttpURLConnection c) {
         try (InputStream in = c.getInputStream()) {
-            byte[] buf = new byte[300000];
+            byte[] buf = new byte[400000];
             int total = 0, n;
             while (total < buf.length && (n = in.read(buf, total, buf.length - total)) > 0) total += n;
-            String html = new String(buf, 0, total, "UTF-8");
-            Matcher m = Pattern.compile("<meta[^>]+property=\"og:title\"[^>]+content=\"([^\"]+)\"").matcher(html);
-            String t = m.find() ? m.group(1) : "";
-            if (t.isEmpty()) {
-                Matcher m2 = Pattern.compile("<title[^>]*>([^<]+)</title>").matcher(html);
-                if (m2.find()) t = m2.group(1);
-            }
-            t = Html_unescape(t).replaceAll("\\s*\\|\\s*Facebook$", "").trim();
-            if (t.equalsIgnoreCase("Facebook") || t.toLowerCase().contains("log in") || t.contains("تسجيل")) return "";
-            return t.length() > 60 ? t.substring(0, 60) : t;
+            return new String(buf, 0, total, "UTF-8");
         } catch (Exception e) {
             return "";
         }
     }
 
+    private String titleOf(String html) {
+        String t = meta(html, "<meta[^>]+property=\"og:title\"[^>]+content=\"([^\"]+)\"");
+        if (t.isEmpty()) t = meta(html, "<title[^>]*>([^<]+)</title>");
+        t = unescape(t).replaceAll("\\s*\\|\\s*Facebook$", "").trim();
+        if (t.equalsIgnoreCase("Facebook") || t.toLowerCase().contains("log in") || t.contains("تسجيل")) return "";
+        return t.length() > 60 ? t.substring(0, 60) : t;
+    }
+
     @SuppressWarnings("deprecation")
-    private static String Html_unescape(String s) {
-        return android.text.Html.fromHtml(s).toString();
+    private static String unescape(String s) {
+        return s.isEmpty() ? s : android.text.Html.fromHtml(s).toString();
     }
 
     // روابط المنصة تبقى داخل التطبيق، وروابط فيسبوك وغيرها تُفتح في تطبيق فيسبوك أو المتصفح
