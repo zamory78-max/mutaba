@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>متابَع</title>
 <meta name="description" content="منشورات الصفحات المختارة فقط، بلا اقتراحات ولا ضجيج">
-<meta name="theme-color" content="#1d6b52">
+<meta name="theme-color" content="#1f5fc4">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -17,14 +17,14 @@
 <style>
 /* تخطيط: شريط علوي ثابت، صف رقائق للتصفية، وعمود واحد للخلاصات المضمّنة */
 :root{
-  --bg:#eef2ef; --surface:#ffffff; --fg:#17231e; --muted:#5d6b64; --line:#d6dfda;
-  --accent:#1d6b52; --accent-soft:#dcece5; --warn-bg:#fff4dc; --warn-fg:#7a5300; --danger:#b3323f;
+  --bg:#eef2f8; --surface:#ffffff; --fg:#141b27; --muted:#59647a; --line:#d4dcea;
+  --accent:#1f5fc4; --accent-soft:#dfe9fa; --warn-bg:#fff4dc; --warn-fg:#7a5300; --danger:#b3323f;
   --display:"Reem Kufi","IBM Plex Sans Arabic",Tahoma,sans-serif;
   --body:"IBM Plex Sans Arabic",Tahoma,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0f1714; --surface:#17221d; --fg:#e6eee9; --muted:#93a39b; --line:#26342d;
-  --accent:#5cc49c; --accent-soft:#1d3a2f; --warn-bg:#3a2f15; --warn-fg:#f2cf7c; --danger:#ef7381; color-scheme:dark}}
+  --bg:#0d121b; --surface:#161d2a; --fg:#e5ebf4; --muted:#8e9ab0; --line:#253044;
+  --accent:#6fa4ff; --accent-soft:#1b2c4a; --warn-bg:#3a2f15; --warn-fg:#f2cf7c; --danger:#ef7381; color-scheme:dark}}
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.7}
@@ -98,9 +98,9 @@ const DEFAULT_LIST={
     {"name":"الجزيرة","url":"https://www.facebook.com/aljazeerachannel","type":"page"}
   ]
 };
-const LS_KEY="mutaba-preview";
+const LS_KEY="mutaba-local";
 const store={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-let list=DEFAULT_LIST, source="default", filter="all", draft=null, lastW=0;
+let base=DEFAULT_LIST, local={added:[],hidden:[]}, list=DEFAULT_LIST, filter="all", lastW=0;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -116,14 +116,20 @@ function normUrl(u){
 }
 const isGroup=u=>/facebook\.com\/groups\//.test(u);
 
+function combine(){
+  const hidden=new Set(local.hidden);
+  const items=base.items.filter(i=>!hidden.has(i.url)).map(i=>({...i,mine:false}));
+  local.added.forEach(i=>{if(!items.some(x=>x.url===i.url))items.push({...i,mine:true})});
+  list={title:base.title||"متابَع",items};
+}
+function saveLocal(){store.set(LS_KEY,local);combine()}
 async function load(){
-  const preview=store.get(LS_KEY);
-  if(preview&&Array.isArray(preview.items)){list=preview;source="preview";return}
+  const l=store.get(LS_KEY); if(l&&Array.isArray(l.added))local={added:l.added,hidden:Array.isArray(l.hidden)?l.hidden:[]};
   try{
     const r=await fetch("pages.json",{cache:"no-store"});
-    if(r.ok){const j=await r.json();if(Array.isArray(j.items)){list=j;source="file";return}}
+    if(r.ok){const j=await r.json();if(Array.isArray(j.items))base=j}
   }catch(e){}
-  list=DEFAULT_LIST;source="default";
+  combine();
 }
 
 function embedWidth(){const w=$("#view").clientWidth-2;return Math.max(180,Math.min(500,Math.floor(w)))}
@@ -155,7 +161,6 @@ function renderFeed(){
   renderChips();
   const pages=list.items.filter(i=>i.type!=="group"), groups=list.items.filter(i=>i.type==="group");
   let h="";
-  if(source==="preview")h+=`<div class="notice">أنت تشاهد معاينة محلية للقائمة على هذا الجهاز فقط. <a class="lnk" href="#admin">إدارة</a></div>`;
   if(!list.items.length){
     $("#view").innerHTML=h+`<div class="empty"><h2>لا توجد صفحات بعد</h2><p>أضف روابط صفحات فيسبوك من شاشة الإدارة.</p><a class="btn" href="#admin">إضافة صفحات</a></div>`;return;
   }
@@ -168,11 +173,10 @@ function renderFeed(){
 
 /* ===== الإدارة ===== */
 function renderAdmin(){
-  if(!draft)draft=JSON.parse(JSON.stringify(list));
   $("#chips").innerHTML=`<a class="chip" href="#" style="text-decoration:none">→ رجوع للخلاصة</a>`;
-  const items=draft.items.map((it,i)=>`<div class="item"><div class="t"><b>${esc(it.name)} <span class="kind">${it.type==="group"?"مجموعة":"صفحة"}</span></b><span>${esc(it.url)}</span></div>
-    <button class="icon-btn" data-up="${i}" aria-label="تحريك للأعلى" ${i?"":"disabled"}>↑</button>
-    <button class="btn danger sm" data-del="${i}">حذف</button></div>`).join("")||`<p style="color:var(--muted);margin:0">القائمة فارغة.</p>`;
+  const items=list.items.map((it,i)=>`<div class="item"><div class="t"><b>${esc(it.name)} <span class="kind">${it.type==="group"?"مجموعة":"صفحة"}</span></b><span>${esc(it.url)}</span></div>
+    <button class="btn danger sm" data-del="${esc(it.url)}">حذف</button></div>`).join("")||`<p style="color:var(--muted);margin:0">القائمة فارغة.</p>`;
+  const exportList={title:list.title,items:list.items.map(({name,url,type})=>({name,url,type}))};
   $("#view").innerHTML=`<div class="stack admin">
   <h2>إدارة الصفحات</h2>
   <div class="panel">
@@ -182,21 +186,13 @@ function renderAdmin(){
     <div class="err" id="fErr"></div>
     <div class="row"><button class="btn" id="addBtn">إضافة</button></div>
   </div>
-  <div class="panel"><h3>القائمة الحالية (${draft.items.length})</h3>${items}</div>
-  <div class="panel">
-    <h3>نشر القائمة لكل المستخدمين</h3>
-    <ol class="steps">
-      <li>انسخ النص أدناه.</li>
-      <li>ضعه في ملف <b>pages.json</b> داخل مجلد المنصة مكان المحتوى القديم.</li>
-      <li>أعد رفع المجلد على الاستضافة، فيرى كل المستخدمين القائمة الجديدة.</li>
-    </ol>
-    <textarea id="json" readonly aria-label="محتوى ملف pages.json">${esc(JSON.stringify(draft,null,2))}</textarea>
-    <div class="row">
-      <button class="btn" id="copyBtn">نسخ pages.json</button>
-      <button class="btn ghost" id="previewBtn">معاينة على هذا الجهاز</button>
-      ${source==="preview"?`<button class="btn danger" id="clearPrev">إلغاء المعاينة</button>`:""}
-    </div>
-  </div></div>`;
+  <div class="panel"><h3>صفحاتك (${list.items.length})</h3>${items}</div>
+  <details class="panel">
+    <summary style="cursor:pointer;font-weight:600">نشر هذه القائمة لكل المستخدمين</summary>
+    <p style="margin:0;font-size:14px;color:var(--muted)">الصفحات التي تضيفها هنا تُحفظ على هذا الجهاز. لتظهر عند كل من ثبّت التطبيق، انسخ النص وضعه مكان محتوى ملف docs/pages.json في GitHub.</p>
+    <textarea id="json" readonly aria-label="محتوى ملف pages.json">${esc(JSON.stringify(exportList,null,2))}</textarea>
+    <div class="row"><button class="btn ghost" id="copyBtn">نسخ النص</button></div>
+  </details></div>`;
 }
 function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,2200)}
 
@@ -206,18 +202,19 @@ document.addEventListener("click",async e=>{
   if(b.id==="addBtn"){
     const url=normUrl($("#fUrl").value), name=$("#fName").value.trim();
     if(!url){$("#fErr").textContent="الرابط غير صالح. انسخ رابط الصفحة من فيسبوك، مثل facebook.com/NASA";return}
-    if(draft.items.some(i=>i.url===url)){$("#fErr").textContent="هذه الصفحة موجودة في القائمة.";return}
-    draft.items.push({name:name||decodeURIComponent(url.split("/").pop()),url,type:isGroup(url)?"group":"page"});
-    renderAdmin();toast("أُضيفت");$("#fUrl").focus();return}
-  if(b.dataset.del!=null){draft.items.splice(+b.dataset.del,1);renderAdmin();return}
-  if(b.dataset.up!=null){const i=+b.dataset.up;[draft.items[i-1],draft.items[i]]=[draft.items[i],draft.items[i-1]];renderAdmin();return}
+    if(list.items.some(i=>i.url===url)){$("#fErr").textContent="هذه الصفحة موجودة في القائمة.";return}
+    local.hidden=local.hidden.filter(u=>u!==url);
+    if(!base.items.some(i=>i.url===url))local.added.push({name:name||decodeURIComponent(url.split("/").pop()),url,type:isGroup(url)?"group":"page"});
+    saveLocal();filter="all";location.hash="";toast("أُضيفت الصفحة");return}
+  if(b.dataset.del!=null){const u=b.dataset.del;
+    if(local.added.some(i=>i.url===u))local.added=local.added.filter(i=>i.url!==u);
+    else if(!local.hidden.includes(u))local.hidden.push(u);
+    saveLocal();renderAdmin();toast("حُذفت");return}
   if(b.id==="copyBtn"){const t=$("#json");try{await navigator.clipboard.writeText(t.value);toast("نُسخ النص")}catch(err){t.focus();t.select();toast("حدّد النص وانسخه يدوياً")}return}
-  if(b.id==="previewBtn"){store.set(LS_KEY,draft);list=JSON.parse(JSON.stringify(draft));source="preview";filter="all";location.hash="";return}
-  if(b.id==="clearPrev"){store.set(LS_KEY,null);draft=null;await load();renderAdmin();toast("أُلغيت المعاينة");return}
 });
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.target.id==="fUrl"||e.target.id==="fName")){e.preventDefault();$("#addBtn").click()}});
 
-function route(){if(location.hash==="#admin")renderAdmin();else{draft=null;renderFeed()}}
+function route(){if(location.hash==="#admin")renderAdmin();else renderFeed()}
 window.addEventListener("hashchange",route);
 let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(location.hash!=="#admin"&&Math.abs(embedWidth()-lastW)>40)renderFeed()},300)});
 load().then(route);
