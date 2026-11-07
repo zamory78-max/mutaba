@@ -5,7 +5,11 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -13,6 +17,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+
+import org.json.JSONObject;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -46,6 +52,7 @@ public class MainActivity extends Activity {
         cm.setAcceptCookie(true);
         cm.setAcceptThirdPartyCookies(web, true);
 
+        web.addJavascriptInterface(new Bridge(), "MutabaApp");
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -216,6 +223,45 @@ public class MainActivity extends Activity {
     @SuppressWarnings("deprecation")
     private static String unescape(String s) {
         return s.isEmpty() ? s : android.text.Html.fromHtml(s).toString();
+    }
+
+    // جسر بين صفحة المنصة والتطبيق: لصق رابط من الحافظة وتحويل روابط المشاركة
+    private class Bridge {
+        @JavascriptInterface
+        public void pasteFromClipboard() {
+            runOnUiThread(() -> {
+                String text = "";
+                try {
+                    ClipboardManager cb = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    ClipData clip = cb != null ? cb.getPrimaryClip() : null;
+                    if (clip != null && clip.getItemCount() > 0) {
+                        CharSequence t = clip.getItemAt(0).coerceToText(MainActivity.this);
+                        if (t != null) text = t.toString();
+                    }
+                } catch (Exception ignored) {}
+                resolveForPage(text);
+            });
+        }
+
+        @JavascriptInterface
+        public void resolveText(String text) {
+            resolveForPage(text == null ? "" : text);
+        }
+    }
+
+    private void resolveForPage(String text) {
+        Matcher m = Pattern.compile("https?://\\S+").matcher(text);
+        if (!m.find()) {
+            String raw = text.trim();
+            runOnUiThread(() -> web.evaluateJavascript("window.nativeAdd&&window.nativeAdd(" + JSONObject.quote(raw) + ",\"\")", null));
+            return;
+        }
+        final String shared = m.group();
+        new Thread(() -> {
+            String[] res = resolve(shared);
+            final String js = "window.nativeAdd&&window.nativeAdd(" + JSONObject.quote(res[0]) + "," + JSONObject.quote(res[1]) + ")";
+            runOnUiThread(() -> web.evaluateJavascript(js, null));
+        }).start();
     }
 
     // روابط المنصة تبقى داخل التطبيق، وروابط فيسبوك وغيرها تُفتح في تطبيق فيسبوك أو المتصفح

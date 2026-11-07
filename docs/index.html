@@ -178,10 +178,12 @@ function renderAdmin(){
   <h2>إدارة الصفحات</h2>
   <div class="panel">
     <h3>إضافة صفحة أو مجموعة</h3>
+    <button class="btn" id="pasteBtn" type="button">${PASTE_LABEL}</button>
+    <p style="margin:0;font-size:13px;color:var(--muted)">في فيسبوك: افتح الصفحة ← ⋯ ← «نسخ الرابط»، ثم ارجع واضغط الزر. أو اكتب الرابط يدوياً:</p>
     <label for="fUrl">رابط الصفحة أو اسم المستخدم فقط<input type="url" id="fUrl" placeholder="مثال: Chlef.people" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
     <label for="fName">الاسم الذي يظهر في المنصة<input id="fName" placeholder="مثال: بلدية مستغانم"></label>
     <div class="err" id="fErr"></div>
-    <div class="row"><button class="btn" id="addBtn">إضافة</button></div>
+    <div class="row"><button class="btn ghost" id="addBtn">إضافة</button></div>
   </div>
   <div class="panel"><h3>صفحاتك (${list.items.length})</h3>${items}</div>
   <details class="panel">
@@ -196,8 +198,14 @@ function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTim
 document.addEventListener("click",async e=>{
   const b=e.target.closest("button");if(!b)return;
   if(b.dataset.f){filter=b.dataset.f;renderFeed();window.scrollTo({top:0});return}
+  if(b.id==="pasteBtn"){
+    $("#fErr").textContent="";
+    if(window.MutabaApp&&window.MutabaApp.pasteFromClipboard){b.disabled=true;b.textContent="جارٍ قراءة الرابط…";window.MutabaApp.pasteFromClipboard();return}
+    try{const t=await navigator.clipboard.readText();addResolved(t,"")}catch(err){$("#fErr").textContent="المتصفح لا يسمح بالقراءة من الحافظة. الصق الرابط في الخانة أدناه بالضغط المطوّل.";$("#fUrl").focus()}
+    return}
   if(b.id==="addBtn"){
     const url=normUrl($("#fUrl").value), name=$("#fName").value.trim();
+    if(url==="share"&&window.MutabaApp&&window.MutabaApp.resolveText){$("#fErr").textContent="جارٍ قراءة الرابط…";window.MutabaApp.resolveText($("#fUrl").value);return}
     if(url==="share"){$("#fErr").textContent="هذا رابط مشاركة وليس رابط الصفحة. افتح الصفحة في فيسبوك واضغط على اسمها، ثم انسخ الرابط من شريط العنوان، مثل facebook.com/NASA";return}
     if(!url){$("#fErr").textContent="الرابط غير صالح. انسخ رابط الصفحة من فيسبوك، مثل facebook.com/NASA";return}
     if(list.items.some(i=>i.url===url)){$("#fErr").textContent="هذه الصفحة موجودة في القائمة.";return}
@@ -213,21 +221,30 @@ document.addEventListener("click",async e=>{
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.target.id==="fUrl"||e.target.id==="fName")){e.preventDefault();$("#addBtn").click()}});
 
 function route(){if(location.hash==="#admin")renderAdmin();else renderFeed()}
+function addResolved(raw,givenName){
+  const url=normUrl(raw);
+  if(!url||url==="share"){
+    if(location.hash!=="#admin")location.hash="#admin";
+    setTimeout(()=>{const er=$("#fErr");if(er)er.textContent=url==="share"
+      ?"فيسبوك لم يكشف رابط الصفحة. افتح «حول» في الصفحة واكتب اسم المستخدم الخاص بها، مثل Chlef.people"
+      :"لم أجد رابط صفحة فيسبوك في ما نسخته. انسخ رابط الصفحة ثم اضغط «لصق» مرة أخرى.";},60);
+    return false;
+  }
+  if(list.items.some(i=>i.url===url)){toast("الصفحة موجودة مسبقاً");return false}
+  local.hidden=local.hidden.filter(u=>u!==url);
+  const name=(givenName||"").trim()||decodeURIComponent(url.split(/[\/=]/).pop());
+  if(!base.items.some(i=>i.url===url))local.added.push({name,url,type:isGroup(url)?"group":"page"});
+  saveLocal(); filter="all";
+  if(location.hash)location.hash=""; else renderFeed();
+  toast("أُضيفت: "+name); return true;
+}
+window.nativeAdd=(url,name)=>{const b=$("#pasteBtn");if(b){b.disabled=false;b.textContent=PASTE_LABEL}addResolved(url,name)};
+const PASTE_LABEL="📋 لصق رابط منسوخ من فيسبوك";
 function addFromShare(){
   let q; try{q=new URLSearchParams(location.search)}catch(e){return}
   const raw=q.get("add"); if(!raw)return;
   try{history.replaceState(null,"",location.pathname)}catch(e){}
-  const url=normUrl(raw);
-  if(!url||url==="share"){
-    location.hash="#admin";
-    setTimeout(()=>{const er=$("#fErr");if(er)er.textContent="تعذّر الوصول إلى رابط الصفحة من المشاركة. اكتب اسم المستخدم الخاص بالصفحة يدوياً، مثل Chlef.people";},50);
-    return;
-  }
-  if(list.items.some(i=>i.url===url)){toast("الصفحة موجودة مسبقاً");return}
-  local.hidden=local.hidden.filter(u=>u!==url);
-  const name=(q.get("name")||"").trim()||decodeURIComponent(url.split(/[\/=]/).pop());
-  if(!base.items.some(i=>i.url===url))local.added.push({name,url,type:isGroup(url)?"group":"page"});
-  saveLocal(); toast("أُضيفت: "+name);
+  addResolved(raw,q.get("name"));
 }
 window.addEventListener("hashchange",route);
 let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(location.hash!=="#admin"&&Math.abs(embedWidth()-lastW)>40)renderFeed()},300)});
