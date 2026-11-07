@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>متابَع</title>
+<meta name="description" content="منشورات الصفحات المختارة فقط، بلا اقتراحات ولا ضجيج">
+<meta name="theme-color" content="#1d6b52">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="متابَع">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
+<style>
+/* تخطيط: شريط علوي ثابت، صف رقائق للتصفية، وعمود واحد للخلاصات المضمّنة */
+:root{
+  --bg:#eef2ef; --surface:#ffffff; --fg:#17231e; --muted:#5d6b64; --line:#d6dfda;
+  --accent:#1d6b52; --accent-soft:#dcece5; --warn-bg:#fff4dc; --warn-fg:#7a5300; --danger:#b3323f;
+  --display:"Reem Kufi","IBM Plex Sans Arabic",Tahoma,sans-serif;
+  --body:"IBM Plex Sans Arabic",Tahoma,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1714; --surface:#17221d; --fg:#e6eee9; --muted:#93a39b; --line:#26342d;
+  --accent:#5cc49c; --accent-soft:#1d3a2f; --warn-bg:#3a2f15; --warn-fg:#f2cf7c; --danger:#ef7381; color-scheme:dark}}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.7}
+[hidden]{display:none!important}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:12px;padding-block:10px}
+.logo{font-family:var(--display);font-size:26px;font-weight:700;color:var(--accent);margin-inline-end:auto;display:flex;align-items:baseline;gap:8px}
+.logo small{font-family:var(--body);font-size:12px;color:var(--muted);font-weight:400}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-size:14px;padding:4px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:600}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{padding-block:16px 40px}
+.stack{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0}
+.card-h{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.card-h b{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kind{font-size:12px;color:var(--muted);background:var(--bg);border-radius:999px;padding:1px 10px}
+.embed{display:flex;justify-content:center;background:var(--surface)}
+.embed iframe{border:0;display:block;max-width:100%}
+.lnk{color:var(--accent);font-weight:600;text-decoration:none;font-size:14px;white-space:nowrap}
+.group-body{padding:14px;display:flex;flex-direction:column;gap:10px}
+.group-body p{margin:0;color:var(--muted);font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;font:inherit;font-weight:600;padding:8px 18px;border-radius:999px;cursor:pointer;background:var(--accent);color:var(--surface);text-decoration:none}
+.btn.ghost{background:var(--accent-soft);color:var(--accent)}
+.btn.sm{padding:4px 12px;font-size:13px}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid var(--line)}
+.notice{background:var(--warn-bg);color:var(--warn-fg);border-radius:12px;padding:10px 14px;font-size:14px}
+.empty{text-align:center;padding:40px 16px}
+.empty h2{font-family:var(--display);font-weight:500;margin:0 0 6px}
+.empty p{color:var(--muted);margin:0 0 14px}
+.icon-btn{border:0;background:var(--bg);color:var(--muted);width:36px;height:36px;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:18px;text-decoration:none}
+/* الإدارة */
+.admin h2{font-family:var(--display);font-weight:500;font-size:22px;margin:0}
+.admin h3{font-size:15px;margin:0 0 8px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+label{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;width:100%}
+input[type=url]{direction:ltr;text-align:left}
+textarea{direction:ltr;text-align:left;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;min-height:160px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.err{color:var(--danger);font-size:13px;min-height:1em}
+.item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .t{flex:1;min-width:0}
+.item .t b{display:block;font-weight:600}
+.item .t span{display:block;font-size:12px;color:var(--muted);direction:ltr;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.steps{margin:0;padding-inline-start:20px;font-size:14px;color:var(--muted)}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 18px;border-radius:999px;font-size:14px;z-index:20}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="top">
+    <div class="logo">متابَع <small>صفحاتك فقط</small></div>
+    <a class="icon-btn" id="adminLink" href="#admin" title="إدارة الصفحات" aria-label="إدارة الصفحات">⚙</a>
+  </div>
+  <div class="chips" id="chips" role="toolbar" aria-label="تصفية"></div>
+</div></header>
+<main><div class="wrap" id="view"></div></main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const DEFAULT_LIST={
+  "title":"متابَع",
+  "items":[
+    {"name":"ناسا","url":"https://www.facebook.com/NASA","type":"page"},
+    {"name":"الجزيرة","url":"https://www.facebook.com/aljazeerachannel","type":"page"}
+  ]
+};
+const LS_KEY="mutaba-preview";
+const store={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let list=DEFAULT_LIST, source="default", filter="all", draft=null, lastW=0;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function normUrl(u){
+  u=(u||"").trim(); if(!u)return null;
+  if(!/^https?:\/\//i.test(u))u="https://"+u;
+  let x; try{x=new URL(u)}catch(e){return null}
+  const h=x.hostname.replace(/^(www|m|web|mbasic)\./,"");
+  if(!["facebook.com","fb.com"].includes(h))return null;
+  if(x.pathname==="/profile.php"&&x.searchParams.get("id"))return "https://www.facebook.com/profile.php?id="+x.searchParams.get("id");
+  const path=x.pathname.replace(/\/+$/,""); if(!path||path==="/")return null;
+  return "https://www.facebook.com"+path;
+}
+const isGroup=u=>/facebook\.com\/groups\//.test(u);
+
+async function load(){
+  const preview=store.get(LS_KEY);
+  if(preview&&Array.isArray(preview.items)){list=preview;source="preview";return}
+  try{
+    const r=await fetch("pages.json",{cache:"no-store"});
+    if(r.ok){const j=await r.json();if(Array.isArray(j.items)){list=j;source="file";return}}
+  }catch(e){}
+  list=DEFAULT_LIST;source="default";
+}
+
+function embedWidth(){const w=$("#view").clientWidth-2;return Math.max(180,Math.min(500,Math.floor(w)))}
+function iframe(url,h){
+  const w=embedWidth();
+  const src="https://www.facebook.com/plugins/page.php?href="+encodeURIComponent(url)+"&tabs=timeline&width="+w+"&height="+h+"&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false&hide_cta=true&locale=ar_AR";
+  return `<iframe src="${esc(src)}" width="${w}" height="${h}" loading="lazy" scrolling="yes" allow="encrypted-media; clipboard-write" title="منشورات الصفحة"></iframe>`;
+}
+
+function renderChips(){
+  const pages=list.items.filter(i=>i.type!=="group"), groups=list.items.filter(i=>i.type==="group");
+  let h=`<button class="chip" aria-pressed="${filter==="all"}" data-f="all">الكل</button>`;
+  pages.forEach((p,i)=>h+=`<button class="chip" aria-pressed="${filter==="p"+i}" data-f="p${i}">${esc(p.name)}</button>`);
+  if(groups.length)h+=`<button class="chip" aria-pressed="${filter==="groups"}" data-f="groups">المجموعات (${groups.length})</button>`;
+  $("#chips").innerHTML=h;
+}
+
+function pageCard(p,h){
+  return `<article class="card"><div class="card-h"><b>${esc(p.name)}</b><span class="kind">صفحة</span><a class="lnk" href="${esc(p.url)}" target="_blank" rel="noopener">فتح في فيسبوك ↗</a></div><div class="embed">${iframe(p.url,h)}</div></article>`;
+}
+function groupCard(g){
+  return `<article class="card"><div class="card-h"><b>${esc(g.name)}</b><span class="kind">مجموعة</span></div>
+  <div class="group-body"><p>فيسبوك لا يسمح بعرض منشورات المجموعات خارج موقعه، فتُفتح المجموعة مباشرة في فيسبوك.</p>
+  <a class="btn ghost" href="${esc(g.url)}" target="_blank" rel="noopener">افتح المجموعة ↗</a></div></article>`;
+}
+
+function renderFeed(){
+  document.title=list.title||"متابَع";
+  renderChips();
+  const pages=list.items.filter(i=>i.type!=="group"), groups=list.items.filter(i=>i.type==="group");
+  let h="";
+  if(source==="preview")h+=`<div class="notice">أنت تشاهد معاينة محلية للقائمة على هذا الجهاز فقط. <a class="lnk" href="#admin">إدارة</a></div>`;
+  if(!list.items.length){
+    $("#view").innerHTML=h+`<div class="empty"><h2>لا توجد صفحات بعد</h2><p>أضف روابط صفحات فيسبوك من شاشة الإدارة.</p><a class="btn" href="#admin">إضافة صفحات</a></div>`;return;
+  }
+  if(filter==="groups") h+=groups.map(groupCard).join("");
+  else if(filter.startsWith("p")&&pages[+filter.slice(1)]) h+=pageCard(pages[+filter.slice(1)],1400);
+  else{filter="all";h+=pages.map(p=>pageCard(p,700)).join("")+groups.map(groupCard).join("");}
+  $("#view").innerHTML=`<div class="stack">${h}</div>`;
+  lastW=embedWidth();
+}
+
+/* ===== الإدارة ===== */
+function renderAdmin(){
+  if(!draft)draft=JSON.parse(JSON.stringify(list));
+  $("#chips").innerHTML=`<a class="chip" href="#" style="text-decoration:none">→ رجوع للخلاصة</a>`;
+  const items=draft.items.map((it,i)=>`<div class="item"><div class="t"><b>${esc(it.name)} <span class="kind">${it.type==="group"?"مجموعة":"صفحة"}</span></b><span>${esc(it.url)}</span></div>
+    <button class="icon-btn" data-up="${i}" aria-label="تحريك للأعلى" ${i?"":"disabled"}>↑</button>
+    <button class="btn danger sm" data-del="${i}">حذف</button></div>`).join("")||`<p style="color:var(--muted);margin:0">القائمة فارغة.</p>`;
+  $("#view").innerHTML=`<div class="stack admin">
+  <h2>إدارة الصفحات</h2>
+  <div class="panel">
+    <h3>إضافة صفحة أو مجموعة</h3>
+    <label for="fUrl">رابط فيسبوك<input type="url" id="fUrl" placeholder="https://www.facebook.com/اسم-الصفحة" inputmode="url"></label>
+    <label for="fName">الاسم الذي يظهر في المنصة<input id="fName" placeholder="مثال: بلدية مستغانم"></label>
+    <div class="err" id="fErr"></div>
+    <div class="row"><button class="btn" id="addBtn">إضافة</button></div>
+  </div>
+  <div class="panel"><h3>القائمة الحالية (${draft.items.length})</h3>${items}</div>
+  <div class="panel">
+    <h3>نشر القائمة لكل المستخدمين</h3>
+    <ol class="steps">
+      <li>انسخ النص أدناه.</li>
+      <li>ضعه في ملف <b>pages.json</b> داخل مجلد المنصة مكان المحتوى القديم.</li>
+      <li>أعد رفع المجلد على الاستضافة، فيرى كل المستخدمين القائمة الجديدة.</li>
+    </ol>
+    <textarea id="json" readonly aria-label="محتوى ملف pages.json">${esc(JSON.stringify(draft,null,2))}</textarea>
+    <div class="row">
+      <button class="btn" id="copyBtn">نسخ pages.json</button>
+      <button class="btn ghost" id="previewBtn">معاينة على هذا الجهاز</button>
+      ${source==="preview"?`<button class="btn danger" id="clearPrev">إلغاء المعاينة</button>`:""}
+    </div>
+  </div></div>`;
+}
+function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,2200)}
+
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.f){filter=b.dataset.f;renderFeed();window.scrollTo({top:0});return}
+  if(b.id==="addBtn"){
+    const url=normUrl($("#fUrl").value), name=$("#fName").value.trim();
+    if(!url){$("#fErr").textContent="الرابط غير صالح. انسخ رابط الصفحة من فيسبوك، مثل facebook.com/NASA";return}
+    if(draft.items.some(i=>i.url===url)){$("#fErr").textContent="هذه الصفحة موجودة في القائمة.";return}
+    draft.items.push({name:name||decodeURIComponent(url.split("/").pop()),url,type:isGroup(url)?"group":"page"});
+    renderAdmin();toast("أُضيفت");$("#fUrl").focus();return}
+  if(b.dataset.del!=null){draft.items.splice(+b.dataset.del,1);renderAdmin();return}
+  if(b.dataset.up!=null){const i=+b.dataset.up;[draft.items[i-1],draft.items[i]]=[draft.items[i],draft.items[i-1]];renderAdmin();return}
+  if(b.id==="copyBtn"){const t=$("#json");try{await navigator.clipboard.writeText(t.value);toast("نُسخ النص")}catch(err){t.focus();t.select();toast("حدّد النص وانسخه يدوياً")}return}
+  if(b.id==="previewBtn"){store.set(LS_KEY,draft);list=JSON.parse(JSON.stringify(draft));source="preview";filter="all";location.hash="";return}
+  if(b.id==="clearPrev"){store.set(LS_KEY,null);draft=null;await load();renderAdmin();toast("أُلغيت المعاينة");return}
+});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.target.id==="fUrl"||e.target.id==="fName")){e.preventDefault();$("#addBtn").click()}});
+
+function route(){if(location.hash==="#admin")renderAdmin();else{draft=null;renderFeed()}}
+window.addEventListener("hashchange",route);
+let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(location.hash!=="#admin"&&Math.abs(embedWidth()-lastW)>40)renderFeed()},300)});
+load().then(route);
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+</script>
+</body>
+</html>

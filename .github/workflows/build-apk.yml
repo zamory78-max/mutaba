@@ -1,0 +1,61 @@
+name: بناء تطبيق APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: تحديد رابط المنصة على GitHub Pages
+        id: site
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          repo="${GITHUB_REPOSITORY#*/}"
+          if [ "${repo,,}" = "${owner}.github.io" ]; then
+            url="https://${owner}.github.io/"
+          else
+            url="https://${owner}.github.io/${repo}/"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "رابط المنصة: $url"
+
+      - name: بناء APK
+        run: gradle -p android assembleRelease -PsiteUrl="${{ steps.site.outputs.url }}" -PversionCode=${{ github.run_number }}
+
+      - name: تجهيز الملف
+        run: cp android/app/build/outputs/apk/release/app-release.apk mutaba.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mutaba-apk
+          path: mutaba.apk
+
+      - name: نشر الإصدار للتنزيل
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: متابَع 1.0.${{ github.run_number }}
+          body: |
+            نزّل ملف mutaba.apk وثبّته على هاتفك.
+            يفتح التطبيق المنصة من الرابط: ${{ steps.site.outputs.url }}
+          files: mutaba.apk

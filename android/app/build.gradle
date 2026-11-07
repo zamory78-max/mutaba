@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+// يضبطه سير العمل في GitHub تلقائياً على رابط GitHub Pages الخاص بك
+def siteUrl = (project.findProperty('siteUrl') ?: 'https://example.github.io/mutaba/').toString()
+def buildNumber = (project.findProperty('versionCode') ?: '1').toString().toInteger()
+
+android {
+    namespace 'com.mutaba.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.mutaba.app'
+        minSdk 21
+        targetSdk 34
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
+        buildConfigField 'String', 'SITE_URL', "\"${siteUrl}\""
+    }
+
+    buildFeatures { buildConfig true }
+
+    // مفتاح ثابت حتى تُثبَّت النسخ الجديدة فوق القديمة دون حذفها
+    signingConfigs {
+        fixed {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug { signingConfig signingConfigs.fixed }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.fixed
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
