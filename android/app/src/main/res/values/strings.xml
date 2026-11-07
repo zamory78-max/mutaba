@@ -2,4 +2,7 @@
 <resources>
     <string name="app_name">متابَع</string>
     <string name="offline">لا يوجد اتصال بالإنترنت. تحقق من الاتصال ثم أعد فتح التطبيق.</string>
+    <string name="share_label">إضافة إلى متابَع</string>
+    <string name="reading_link">جارٍ قراءة رابط الصفحة…</string>
+    <string name="no_link">لم أجد رابطاً في ما شاركته.</string>
 </resources>

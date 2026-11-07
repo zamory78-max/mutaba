@@ -213,9 +213,25 @@ document.addEventListener("click",async e=>{
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.target.id==="fUrl"||e.target.id==="fName")){e.preventDefault();$("#addBtn").click()}});
 
 function route(){if(location.hash==="#admin")renderAdmin();else renderFeed()}
+function addFromShare(){
+  let q; try{q=new URLSearchParams(location.search)}catch(e){return}
+  const raw=q.get("add"); if(!raw)return;
+  try{history.replaceState(null,"",location.pathname)}catch(e){}
+  const url=normUrl(raw);
+  if(!url||url==="share"){
+    location.hash="#admin";
+    setTimeout(()=>{const er=$("#fErr");if(er)er.textContent="تعذّر الوصول إلى رابط الصفحة من المشاركة. اكتب اسم المستخدم الخاص بالصفحة يدوياً، مثل Chlef.people";},50);
+    return;
+  }
+  if(list.items.some(i=>i.url===url)){toast("الصفحة موجودة مسبقاً");return}
+  local.hidden=local.hidden.filter(u=>u!==url);
+  const name=(q.get("name")||"").trim()||decodeURIComponent(url.split(/[\/=]/).pop());
+  if(!base.items.some(i=>i.url===url))local.added.push({name,url,type:isGroup(url)?"group":"page"});
+  saveLocal(); toast("أُضيفت: "+name);
+}
 window.addEventListener("hashchange",route);
 let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(()=>{if(location.hash!=="#admin"&&Math.abs(embedWidth()-lastW)>40)renderFeed()},300)});
-load().then(route);
+load().then(()=>{addFromShare();if(location.hash==="#added")history.replaceState(null,"",location.pathname);route()});
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
 </script>
 </body>
