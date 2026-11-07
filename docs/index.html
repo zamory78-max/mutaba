@@ -100,7 +100,8 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function normUrl(u){
-  u=(u||"").trim(); if(!u)return null;
+  u=(u||"").trim().replace(/\s+/g,""); if(!u)return null;
+  if(/^@?[A-Za-z0-9._-]{2,}$/.test(u)&&!/facebook|fb\.com/i.test(u))return "https://www.facebook.com/"+u.replace(/^@/,"");
   if(!/^https?:\/\//i.test(u))u="https://"+u;
   let x; try{x=new URL(u)}catch(e){return null}
   const h=x.hostname.replace(/^(www|m|web|mbasic)\./,"");
@@ -177,7 +178,7 @@ function renderAdmin(){
   <h2>إدارة الصفحات</h2>
   <div class="panel">
     <h3>إضافة صفحة أو مجموعة</h3>
-    <label for="fUrl">رابط فيسبوك<input type="url" id="fUrl" placeholder="https://www.facebook.com/اسم-الصفحة" inputmode="url"></label>
+    <label for="fUrl">رابط الصفحة أو اسم المستخدم فقط<input type="url" id="fUrl" placeholder="مثال: Chlef.people" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
     <label for="fName">الاسم الذي يظهر في المنصة<input id="fName" placeholder="مثال: بلدية مستغانم"></label>
     <div class="err" id="fErr"></div>
     <div class="row"><button class="btn" id="addBtn">إضافة</button></div>
