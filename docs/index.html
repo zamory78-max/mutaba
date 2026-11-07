@@ -59,6 +59,7 @@ main{padding-block:16px 40px}
 .empty{text-align:center;padding:40px 16px}
 .empty h2{font-family:var(--display);font-weight:500;margin:0 0 6px}
 .empty p{color:var(--muted);margin:0 0 14px}
+.sm-x{width:30px;height:30px;font-size:14px}
 .icon-btn{border:0;background:var(--bg);color:var(--muted);width:36px;height:36px;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:18px;text-decoration:none}
 /* الإدارة */
 .admin h2{font-family:var(--display);font-weight:500;font-size:22px;margin:0}
@@ -83,7 +84,7 @@ textarea{direction:ltr;text-align:left;font-family:ui-monospace,Menlo,Consolas,m
 <header><div class="wrap">
   <div class="top">
     <div class="logo">متابَع <small>صفحاتك فقط</small></div>
-    <a class="icon-btn" id="adminLink" href="#admin" title="إدارة الصفحات" aria-label="إدارة الصفحات">⚙</a>
+    <a class="btn sm" id="adminLink" href="#admin">+ إضافة صفحة</a>
   </div>
   <div class="chips" id="chips" role="toolbar" aria-label="تصفية"></div>
 </div></header>
@@ -91,13 +92,7 @@ textarea{direction:ltr;text-align:left;font-family:ui-monospace,Menlo,Consolas,m
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const DEFAULT_LIST={
-  "title":"متابَع",
-  "items":[
-    {"name":"ناسا","url":"https://www.facebook.com/NASA","type":"page"},
-    {"name":"الجزيرة","url":"https://www.facebook.com/aljazeerachannel","type":"page"}
-  ]
-};
+const DEFAULT_LIST={"title":"متابَع","items":[]};
 const LS_KEY="mutaba-local";
 const store={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let base=DEFAULT_LIST, local={added:[],hidden:[]}, list=DEFAULT_LIST, filter="all", lastW=0;
@@ -112,6 +107,7 @@ function normUrl(u){
   if(!["facebook.com","fb.com"].includes(h))return null;
   if(x.pathname==="/profile.php"&&x.searchParams.get("id"))return "https://www.facebook.com/profile.php?id="+x.searchParams.get("id");
   const path=x.pathname.replace(/\/+$/,""); if(!path||path==="/")return null;
+  if(/^\/(share|sharer|watch|reel|photo|story)/.test(path))return "share";
   return "https://www.facebook.com"+path;
 }
 const isGroup=u=>/facebook\.com\/groups\//.test(u);
@@ -148,10 +144,10 @@ function renderChips(){
 }
 
 function pageCard(p,h){
-  return `<article class="card"><div class="card-h"><b>${esc(p.name)}</b><span class="kind">صفحة</span><a class="lnk" href="${esc(p.url)}" target="_blank" rel="noopener">فتح في فيسبوك ↗</a></div><div class="embed">${iframe(p.url,h)}</div></article>`;
+  return `<article class="card"><div class="card-h"><b>${esc(p.name)}</b><span class="kind">صفحة</span><a class="lnk" href="${esc(p.url)}" target="_blank" rel="noopener">فتح ↗</a><button class="icon-btn sm-x" data-del="${esc(p.url)}" aria-label="حذف ${esc(p.name)}" title="حذف">✕</button></div><div class="embed">${iframe(p.url,h)}</div></article>`;
 }
 function groupCard(g){
-  return `<article class="card"><div class="card-h"><b>${esc(g.name)}</b><span class="kind">مجموعة</span></div>
+  return `<article class="card"><div class="card-h"><b>${esc(g.name)}</b><span class="kind">مجموعة</span><button class="icon-btn sm-x" data-del="${esc(g.url)}" aria-label="حذف ${esc(g.name)}" title="حذف">✕</button></div>
   <div class="group-body"><p>فيسبوك لا يسمح بعرض منشورات المجموعات خارج موقعه، فتُفتح المجموعة مباشرة في فيسبوك.</p>
   <a class="btn ghost" href="${esc(g.url)}" target="_blank" rel="noopener">افتح المجموعة ↗</a></div></article>`;
 }
@@ -201,6 +197,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.f){filter=b.dataset.f;renderFeed();window.scrollTo({top:0});return}
   if(b.id==="addBtn"){
     const url=normUrl($("#fUrl").value), name=$("#fName").value.trim();
+    if(url==="share"){$("#fErr").textContent="هذا رابط مشاركة وليس رابط الصفحة. افتح الصفحة في فيسبوك واضغط على اسمها، ثم انسخ الرابط من شريط العنوان، مثل facebook.com/NASA";return}
     if(!url){$("#fErr").textContent="الرابط غير صالح. انسخ رابط الصفحة من فيسبوك، مثل facebook.com/NASA";return}
     if(list.items.some(i=>i.url===url)){$("#fErr").textContent="هذه الصفحة موجودة في القائمة.";return}
     local.hidden=local.hidden.filter(u=>u!==url);
@@ -209,7 +206,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.del!=null){const u=b.dataset.del;
     if(local.added.some(i=>i.url===u))local.added=local.added.filter(i=>i.url!==u);
     else if(!local.hidden.includes(u))local.hidden.push(u);
-    saveLocal();renderAdmin();toast("حُذفت");return}
+    saveLocal();location.hash==="#admin"?renderAdmin():renderFeed();toast("حُذفت");return}
   if(b.id==="copyBtn"){const t=$("#json");try{await navigator.clipboard.writeText(t.value);toast("نُسخ النص")}catch(err){t.focus();t.select();toast("حدّد النص وانسخه يدوياً")}return}
 });
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.target.id==="fUrl"||e.target.id==="fName")){e.preventDefault();$("#addBtn").click()}});

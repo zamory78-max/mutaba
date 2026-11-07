@@ -1,7 +1,4 @@
 {
   "title": "متابَع",
-  "items": [
-    {"name": "ناسا", "url": "https://www.facebook.com/NASA", "type": "page"},
-    {"name": "الجزيرة", "url": "https://www.facebook.com/aljazeerachannel", "type": "page"}
-  ]
+  "items": []
 }
