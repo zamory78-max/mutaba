@@ -39,6 +39,12 @@ public class MainActivity extends Activity {
     private static final int GREY = Color.parseColor("#59647a");
     private static final int FILE_REQ = 41;
 
+    // في عرض الحاسوب: نضبط عرض الصفحة ليتسع عمود المنشورات كاملاً داخل شاشة الهاتف
+    private static final String FIT_JS = "(function(){function f(){var h=document.head||document.documentElement;if(!h)return;"
+            + "var m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';h.appendChild(m);}"
+            + "var c='width=620, user-scalable=yes';if(m.content!==c)m.content=c;}"
+            + "f();if(!window.__mtbFit){window.__mtbFit=1;new MutationObserver(f).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['content']});}})();";
+
     private WebView web;
     private ProgressBar progress;
     private TextView[] tabViews;
@@ -133,11 +139,15 @@ public class MainActivity extends Activity {
         web.loadUrl(tabUrl(i));
     }
 
+    private void fit() {
+        if (desktop) web.evaluateJavascript(FIT_JS, null);
+    }
+
     private void applyMode() {
         WebSettings s = web.getSettings();
         s.setUserAgentString(desktop ? DESKTOP_UA : null);
         s.setUseWideViewPort(true);
-        s.setLoadWithOverviewMode(desktop);
+        s.setLoadWithOverviewMode(true);
         s.setBuiltInZoomControls(desktop);
         s.setDisplayZoomControls(false);
     }
@@ -192,6 +202,17 @@ public class MainActivity extends Activity {
             public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
                 super.doUpdateVisitedHistory(view, url, isReload);
                 if (isGeneralFeed(Uri.parse(url))) forceTab();
+                else fit();
+            }
+
+            @Override
+            public void onPageCommitVisible(WebView view, String url) {
+                fit();
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                fit();
             }
 
             @Override
