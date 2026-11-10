@@ -31,6 +31,7 @@ public class MainActivity extends Activity {
     private static final String[][] TABS = {
             {"الصفحات", "pages"},
             {"المجموعات", "groups"},
+            {"الأصدقاء", "friends"},
             {"المفضلة", "favorites"}
     };
     private static final String DESKTOP_UA =
@@ -40,10 +41,24 @@ public class MainActivity extends Activity {
     private static final int FILE_REQ = 41;
 
     // في عرض الحاسوب: نضبط عرض الصفحة ليتسع عمود المنشورات كاملاً داخل شاشة الهاتف
-    private static final String FIT_JS = "(function(){function f(){var h=document.head||document.documentElement;if(!h)return;"
+    // في عرض الحاسوب: نخفي القوائم الجانبية لفيسبوك، ونضبط العرض ليملأ عمود المنشورات الشاشة
+    private static final String FIT_JS = "(function(){if(window.__mtb)return window.__mtb();"
+            + "var css='[role=complementary]{display:none!important}"
+            + "[data-mtb-hide]{display:none!important}"
+            + "[role=main]{max-width:100%!important;min-width:0!important}';"
+            + "function vp(){var h=document.head||document.documentElement;if(!h)return;"
             + "var m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';h.appendChild(m);}"
-            + "var c='width=620, user-scalable=yes';if(m.content!==c)m.content=c;}"
-            + "f();if(!window.__mtbFit){window.__mtbFit=1;new MutationObserver(f).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['content']});}})();";
+            + "var c='width=560, user-scalable=yes';if(m.content!==c)m.content=c;"
+            + "if(!document.getElementById('mtb-css')){var st=document.createElement('style');st.id='mtb-css';st.textContent=css;h.appendChild(st);}}"
+            + "function clean(){var main=document.querySelector('[role=main]');"
+            + "document.querySelectorAll('[role=navigation]').forEach(function(n){"
+            + "if(n.closest('[role=banner]')||n.closest('[role=dialog]')||(main&&n.contains(main)))return;"
+            + "var t=n;while(t.parentElement&&t.parentElement!==document.body&&t.parentElement.children.length===1&&!(main&&t.parentElement.contains(main)))t=t.parentElement;"
+            + "if(!t.hasAttribute('data-mtb-hide'))t.setAttribute('data-mtb-hide','');});}"
+            + "var busy=false;function run(){vp();clean();}"
+            + "window.__mtb=run;run();"
+            + "new MutationObserver(function(){if(busy)return;busy=true;setTimeout(function(){busy=false;run();},400);})"
+            + ".observe(document.documentElement,{childList:true,subtree:true});})();";
 
     private WebView web;
     private ProgressBar progress;
@@ -99,7 +114,7 @@ public class MainActivity extends Activity {
         TextView more = makeBarItem("⋯");
         more.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
         more.setOnClickListener(this::showMenu);
-        bar.addView(more, new LinearLayout.LayoutParams(dp(56), dp(54)));
+        bar.addView(more, new LinearLayout.LayoutParams(dp(48), dp(54)));
         root.addView(bar);
 
         setContentView(root);
@@ -114,7 +129,7 @@ public class MainActivity extends Activity {
         TextView t = new TextView(this);
         t.setText(label);
         t.setGravity(Gravity.CENTER);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         t.setTextColor(GREY);
         t.setClickable(true);
         TypedValue tv = new TypedValue();
