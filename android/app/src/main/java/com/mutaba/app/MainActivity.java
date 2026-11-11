@@ -7,7 +7,10 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -42,23 +45,27 @@ public class MainActivity extends Activity {
 
     // في عرض الحاسوب: نضبط عرض الصفحة ليتسع عمود المنشورات كاملاً داخل شاشة الهاتف
     // في عرض الحاسوب: نخفي القوائم الجانبية لفيسبوك، ونضبط العرض ليملأ عمود المنشورات الشاشة
-    private static final String FIT_JS = "(function(){if(window.__mtb)return window.__mtb();"
-            + "var css='[role=complementary]{display:none!important}"
-            + "[data-mtb-hide]{display:none!important}"
-            + "[role=main]{max-width:100%!important;min-width:0!important}';"
-            + "function vp(){var h=document.head||document.documentElement;if(!h)return;"
+    // في عرض الحاسوب: نخفي القوائم الجانبية لفيسبوك ونضبط العرض. يعمل بضع مرات بعد كل انتقال فقط
+    private static final String FIT_JS = "(function(){var h=document.head||document.documentElement;if(!h)return;"
             + "var m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';h.appendChild(m);}"
             + "var c='width=560, user-scalable=yes';if(m.content!==c)m.content=c;"
-            + "if(!document.getElementById('mtb-css')){var st=document.createElement('style');st.id='mtb-css';st.textContent=css;h.appendChild(st);}}"
-            + "function clean(){var main=document.querySelector('[role=main]');"
-            + "document.querySelectorAll('[role=navigation]').forEach(function(n){"
-            + "if(n.closest('[role=banner]')||n.closest('[role=dialog]')||(main&&n.contains(main)))return;"
+            + "if(!document.getElementById('mtb-css')){var st=document.createElement('style');st.id='mtb-css';"
+            + "st.textContent='[role=complementary],[data-mtb-hide]{display:none!important}[role=main]{max-width:100%!important;min-width:0!important}';h.appendChild(st);}"
+            + "var main=document.querySelector('[role=main]');"
+            + "var navs=document.querySelectorAll('[role=navigation]:not([data-mtb-seen])');"
+            + "for(var i=0;i<navs.length;i++){var n=navs[i];n.setAttribute('data-mtb-seen','');"
+            + "if(n.closest('[role=banner]')||n.closest('[role=dialog]')||(main&&n.contains(main)))continue;"
             + "var t=n;while(t.parentElement&&t.parentElement!==document.body&&t.parentElement.children.length===1&&!(main&&t.parentElement.contains(main)))t=t.parentElement;"
-            + "if(!t.hasAttribute('data-mtb-hide'))t.setAttribute('data-mtb-hide','');});}"
-            + "var busy=false;function run(){vp();clean();}"
-            + "window.__mtb=run;run();"
-            + "new MutationObserver(function(){if(busy)return;busy=true;setTimeout(function(){busy=false;run();},400);})"
-            + ".observe(document.documentElement,{childList:true,subtree:true});})();";
+            + "t.setAttribute('data-mtb-hide','');}})();";
+
+    // التبديل بين التبويبات داخل فيسبوك دون إعادة تحميل التطبيق كله
+    private static String switchJs(String filter) {
+        return "(function(){var a=document.querySelector('a[href*=\"filter=" + filter + "\"]');"
+                + "if(a){a.click();window.scrollTo(0,0);return 'ok';}return 'no';})()";
+    }
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable fitTask = this::fitNow;
 
     private WebView web;
     private ProgressBar progress;
@@ -151,11 +158,29 @@ public class MainActivity extends Activity {
         prefs.edit().putInt("tab", i).apply();
         highlight();
         lastForced = SystemClock.elapsedRealtime();
-        web.loadUrl(tabUrl(i));
+        String now = web.getUrl();
+        if (now != null && isFacebook(Uri.parse(now).getHost()) && !now.contains("/login")) {
+            web.evaluateJavascript(switchJs(TABS[i][1]), res -> {
+                if (res == null || !res.contains("ok")) web.loadUrl(tabUrl(i));
+                else fit();
+            });
+        } else {
+            web.loadUrl(tabUrl(i));
+        }
     }
 
+    private void fitNow() {
+        if (desktop && web != null) web.evaluateJavascript(FIT_JS, null);
+    }
+
+    // يُشغَّل فوراً ثم بعد ثانية وثلاث وست ثوانٍ، ليلحق بأجزاء الصفحة التي تتأخر في الظهور
     private void fit() {
-        if (desktop) web.evaluateJavascript(FIT_JS, null);
+        if (!desktop) return;
+        handler.removeCallbacks(fitTask);
+        fitNow();
+        handler.postDelayed(fitTask, 1000);
+        handler.postDelayed(fitTask, 3000);
+        handler.postDelayed(fitTask, 6000);
     }
 
     private void applyMode() {
@@ -172,7 +197,10 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
-        s.setMediaPlaybackRequiresUserGesture(true);
+        s.setMediaPlaybackRequiresUserGesture(true);   // لا تشغيل تلقائي للفيديوهات
+        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        s.setGeolocationEnabled(false);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) s.setOffscreenPreRaster(true); // تمرير أنعم
         applyMode();
 
         CookieManager cm = CookieManager.getInstance();
@@ -307,7 +335,8 @@ public class MainActivity extends Activity {
         PopupMenu m = new PopupMenu(this, anchor);
         m.getMenu().add(0, 1, 0, "تحديث");
         m.getMenu().add(0, 2, 1, desktop ? "عرض الهاتف" : "عرض الحاسوب");
-        m.getMenu().add(0, 3, 2, "تسجيل الخروج");
+        m.getMenu().add(0, 4, 2, "تنظيف الذاكرة المؤقتة");
+        m.getMenu().add(0, 3, 3, "تسجيل الخروج");
         m.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case 1:
@@ -318,6 +347,11 @@ public class MainActivity extends Activity {
                     prefs.edit().putBoolean("desktop", desktop).apply();
                     applyMode();
                     lastForced = SystemClock.elapsedRealtime();
+                    web.loadUrl(tabUrl(current));
+                    return true;
+                case 4:
+                    web.clearCache(true);
+                    Toast.makeText(this, "تم التنظيف. سيُعاد تحميل الخلاصة.", Toast.LENGTH_SHORT).show();
                     web.loadUrl(tabUrl(current));
                     return true;
                 case 3:
@@ -348,6 +382,22 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         CookieManager.getInstance().flush();
+        handler.removeCallbacks(fitTask);
+        web.onPause();
+        web.pauseTimers();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        web.onResume();
+        web.resumeTimers();
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= TRIM_MEMORY_RUNNING_LOW) web.freeMemory();
     }
 
     @Override
