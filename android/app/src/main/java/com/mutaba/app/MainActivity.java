@@ -44,19 +44,21 @@ public class MainActivity extends Activity {
     private static final int FILE_REQ = 41;
 
     // في عرض الحاسوب: نضبط عرض الصفحة ليتسع عمود المنشورات كاملاً داخل شاشة الهاتف
-    // في عرض الحاسوب: نخفي القوائم الجانبية لفيسبوك، ونضبط العرض ليملأ عمود المنشورات الشاشة
-    // في عرض الحاسوب: نخفي القوائم الجانبية لفيسبوك ونضبط العرض. يعمل بضع مرات بعد كل انتقال فقط
-    private static final String FIT_JS = "(function(){var h=document.head||document.documentElement;if(!h)return;"
+    // في عرض الحاسوب: نخفي القوائم الجانبية لفيسبوك ونضبط العرض.
+    // فحص خفيف كل ثانية ونصف، لأن فيسبوك يعيد رسم القائمة أحياناً
+    private static final String FIT_JS = "(function(){"
+            + "function run(){var h=document.head||document.documentElement;if(!h)return;"
             + "var m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';h.appendChild(m);}"
             + "var c='width=560, user-scalable=yes';if(m.content!==c)m.content=c;"
             + "if(!document.getElementById('mtb-css')){var st=document.createElement('style');st.id='mtb-css';"
             + "st.textContent='[role=complementary],[data-mtb-hide]{display:none!important}[role=main]{max-width:100%!important;min-width:0!important}';h.appendChild(st);}"
             + "var main=document.querySelector('[role=main]');"
-            + "var navs=document.querySelectorAll('[role=navigation]:not([data-mtb-seen])');"
-            + "for(var i=0;i<navs.length;i++){var n=navs[i];n.setAttribute('data-mtb-seen','');"
+            + "var navs=document.querySelectorAll('[role=navigation]');"
+            + "for(var i=0;i<navs.length;i++){var n=navs[i];"
             + "if(n.closest('[role=banner]')||n.closest('[role=dialog]')||(main&&n.contains(main)))continue;"
             + "var t=n;while(t.parentElement&&t.parentElement!==document.body&&t.parentElement.children.length===1&&!(main&&t.parentElement.contains(main)))t=t.parentElement;"
-            + "t.setAttribute('data-mtb-hide','');}})();";
+            + "if(!t.hasAttribute('data-mtb-hide'))t.setAttribute('data-mtb-hide','');}}"
+            + "run();if(!window.__mtbInt)window.__mtbInt=setInterval(function(){if(!document.hidden)run();},1500);})();";
 
     // التبديل بين التبويبات داخل فيسبوك دون إعادة تحميل التطبيق كله
     private static String switchJs(String filter) {
@@ -173,14 +175,12 @@ public class MainActivity extends Activity {
         if (desktop && web != null) web.evaluateJavascript(FIT_JS, null);
     }
 
-    // يُشغَّل فوراً ثم بعد ثانية وثلاث وست ثوانٍ، ليلحق بأجزاء الصفحة التي تتأخر في الظهور
+    // يُشغَّل فوراً ثم مرة أخرى بعد لحظة؛ وبعدها يتولى الفحص الدوري داخل الصفحة الباقي
     private void fit() {
         if (!desktop) return;
         handler.removeCallbacks(fitTask);
         fitNow();
-        handler.postDelayed(fitTask, 1000);
-        handler.postDelayed(fitTask, 3000);
-        handler.postDelayed(fitTask, 6000);
+        handler.postDelayed(fitTask, 800);
     }
 
     private void applyMode() {
