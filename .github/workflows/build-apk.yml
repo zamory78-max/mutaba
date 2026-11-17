@@ -59,3 +59,13 @@ jobs:
             نزّل ملف mutaba.apk وثبّته على هاتفك.
             يفتح التطبيق المنصة من الرابط: ${{ steps.site.outputs.url }}
           files: mutaba.apk
+
+      - name: نشر نسخة في مستودع التحميلات العام (apps-downloads)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.DOWNLOADS_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::warning::DOWNLOADS_TOKEN غير مضبوط، تم تخطي النشر في apps-downloads"; exit 0; fi
+          gh release view mutaba -R zamory78-max/apps-downloads >/dev/null 2>&1 || \
+            gh release create mutaba -R zamory78-max/apps-downloads --title "متابَع" --notes "آخر نسخة من متابَع"
+          gh release upload mutaba mutaba.apk -R zamory78-max/apps-downloads --clobber
